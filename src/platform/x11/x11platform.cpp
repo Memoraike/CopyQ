@@ -17,7 +17,12 @@
 #include <QStringList>
 #include <QVariant>
 #include <QWidget>
+#include <QWindow>
 #include <QFile>
+
+#ifdef HAS_LAYERSHELLQT
+#   include <LayerShellQt/Window>
+#endif
 
 #include "x11platformclipboard.h"
 
@@ -243,6 +248,46 @@ void X11Platform::setAutostartEnabled(bool enable)
     maybePrintFileError(desktopFile2, "Failed to write desktop file");
 #else
     Q_UNUSED(enable)
+#endif
+}
+
+bool X11Platform::setWindowLayer(QWindow *window, const QString &layer)
+{
+#ifdef HAS_LAYERSHELLQT
+    if ( !window || QGuiApplication::platformName() != QLatin1String("wayland") )
+        return false;
+
+    LayerShellQt::Window::Layer layerValue;
+    if ( layer == QLatin1String("background") ) {
+        layerValue = LayerShellQt::Window::LayerBackground;
+    } else if ( layer == QLatin1String("bottom") ) {
+        layerValue = LayerShellQt::Window::LayerBottom;
+    } else if ( layer == QLatin1String("top") ) {
+        layerValue = LayerShellQt::Window::LayerTop;
+    } else if ( layer == QLatin1String("overlay") ) {
+        layerValue = LayerShellQt::Window::LayerOverlay;
+    } else {
+        log( QStringLiteral("Unknown Wayland layer \"%1\"").arg(layer), LogWarning );
+        return false;
+    }
+
+    auto layerWindow = LayerShellQt::Window::get(window);
+    if (!layerWindow)
+        return false;
+
+    layerWindow->setScope(QStringLiteral("copyq"));
+    layerWindow->setLayer(layerValue);
+    // Without anchors, the compositor centers the window on screen.
+    layerWindow->setAnchors(LayerShellQt::Window::AnchorNone);
+    // Allow typing into the window (search, item editing) but let the
+    // compositor move the keyboard focus to other windows on click.
+    layerWindow->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityOnDemand);
+    return true;
+#else
+    Q_UNUSED(window)
+    if ( !layer.isEmpty() && QGuiApplication::platformName() == QLatin1String("wayland") )
+        log( QStringLiteral("Cannot set Wayland layer: the app was built without LayerShellQt"), LogWarning );
+    return false;
 #endif
 }
 

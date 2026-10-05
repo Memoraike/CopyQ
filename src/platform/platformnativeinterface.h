@@ -12,6 +12,7 @@ class QCoreApplication;
 class QDir;
 class QGuiApplication;
 class QKeyEvent;
+class QWindow;
 
 class PlatformWindow;
 class PlatformClipboard;
@@ -66,6 +67,14 @@ public:
      */
     virtual bool setPreventScreenCapture(WId winId, bool prevent) = 0;
     virtual bool canPreventScreenCapture() = 0;
+
+    /**
+     * Place the window in a Wayland layer-shell layer and return true if successfully set.
+     *
+     * The layer is one of "background", "bottom", "top" and "overlay".
+     * Must be called while the window is hidden.
+     */
+    virtual bool setWindowLayer(QWindow *window, const QString &layer) = 0;
 
     /**
      * Create QCoreApplication object for console output (to show help or version and quit).

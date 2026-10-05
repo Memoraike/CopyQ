@@ -91,6 +91,7 @@ struct MainWindowOptions {
     bool hideTabs = false;
 
     bool hideMainWindow = false;
+    QString waylandLayer;
     bool closeOnUnfocus = false;
 
     int itemActivationCommands = ActivateCloses;
@@ -581,6 +582,8 @@ private:
     void updateTrayMenuCommands();
 
     void updateWindowTransparency(bool mouseOver = false);
+
+    void updateWindowLayer();
 
     /** Return browser widget in given tab @a index. */
     ClipboardBrowserPlaceholder *getPlaceholder(int index) const;

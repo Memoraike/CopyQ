@@ -3152,6 +3152,8 @@ void MainWindow::loadSettings(QSettings &settings, AppConfig *appConfig)
     flags.set(Qt::FramelessWindowHint, appConfig->option<Config::frameless_window>());
     flags.apply();
 
+    m_options.waylandLayer = appConfig->option<Config::wayland_layer>();
+
     Q_ASSERT( ui->tabWidget->count() > 0 );
 
     // Save any tabs loaded from new tab files.
@@ -3241,6 +3243,8 @@ void MainWindow::showWindow()
 
     moveToCurrentWorkspace(this);
 
+    updateWindowLayer();
+
     if ( !isGeometryGuardBlockedUntilHidden(this) && (m_wasMaximized || isMaximized()) )
         showMaximized();
     else
@@ -3256,6 +3260,17 @@ void MainWindow::showWindow()
     }
 
     raiseWindow(this);
+}
+
+void MainWindow::updateWindowLayer()
+{
+    if ( m_options.waylandLayer.isEmpty() || isVisible() )
+        return;
+
+    // Changing window flags can re-create the native window,
+    // so the layer needs to be set again before showing the window.
+    createWinId();
+    platformNativeInterface()->setWindowLayer(windowHandle(), m_options.waylandLayer);
 }
 
 void MainWindow::hideWindow()
