@@ -385,7 +385,8 @@ jobs:
               --output-file coverage.info
 
       - name: Upload coverage to Codecov
-        if: matrix.coverage
+        # Forks are not registered on Codecov (upload fails with 404).
+        if: matrix.coverage && !github.event.repository.fork
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
         with:
           files: ${{github.workspace}}/build/copyq/${{ matrix.cmake_preset }}/coverage.info
