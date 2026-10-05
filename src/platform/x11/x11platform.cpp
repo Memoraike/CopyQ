@@ -291,6 +291,15 @@ bool X11Platform::setWindowLayer(QWindow *window, const QString &layer)
 #endif
 }
 
+bool X11Platform::canSetWindowLayer()
+{
+#ifdef HAS_LAYERSHELLQT
+    return QGuiApplication::platformName() == QLatin1String("wayland");
+#else
+    return false;
+#endif
+}
+
 QCoreApplication *X11Platform::createConsoleApplication(int &argc, char **argv)
 {
     return new ApplicationExceptionHandler<QCoreApplication>(argc, argv);

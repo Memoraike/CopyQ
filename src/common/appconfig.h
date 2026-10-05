@@ -565,12 +565,6 @@ struct frameless_window : Config<bool> {
 
 struct wayland_layer : Config<QString> {
     static QString name() { return QStringLiteral("wayland_layer"); }
-    static const char *description() {
-        return "Wayland layer-shell layer for the main window:"
-               " background, bottom, top or overlay"
-               " (empty for a normal window; switching back to a normal window"
-               " requires restarting the app)";
-    }
 };
 
 struct terminate_action_timeout_ms : Config<int> {

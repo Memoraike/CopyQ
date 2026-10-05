@@ -75,6 +75,7 @@ public:
      * Must be called while the window is hidden.
      */
     virtual bool setWindowLayer(QWindow *window, const QString &layer) = 0;
+    virtual bool canSetWindowLayer() = 0;
 
     /**
      * Create QCoreApplication object for console output (to show help or version and quit).

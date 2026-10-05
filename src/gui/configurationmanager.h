@@ -36,6 +36,7 @@ class QComboBox;
 class QLineEdit;
 class QListWidgetItem;
 class QSpinBox;
+class ValueComboBox;
 enum class NavigationStyle;
 
 struct ClipboardBrowserShared;
@@ -118,6 +119,7 @@ private:
     void bind(const QString &optionKey, QLineEdit *obj, const QString &defaultValue);
     void bind(const QString &optionKey, QComboBox *obj, int defaultValue);
     void bind(const QString &optionKey, QComboBox *obj, NavigationStyle defaultValue);
+    void bind(const QString &optionKey, ValueComboBox *obj, const QString &defaultValue);
     void bind(const QString &optionKey, const QVariant &defaultValue, const char *description);
 
     void updateTabComboBoxes();
