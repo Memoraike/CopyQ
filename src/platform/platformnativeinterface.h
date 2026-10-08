@@ -72,9 +72,11 @@ public:
      * Place the window in a Wayland layer-shell layer and return true if successfully set.
      *
      * The layer is one of "background", "bottom", "top" and "overlay".
+     * If \a cursor (global mouse cursor position) is set, the window is placed
+     * under it, otherwise it is centered on screen.
      * Must be called while the window is hidden.
      */
-    virtual bool setWindowLayer(QWindow *window, const QString &layer) = 0;
+    virtual bool setWindowLayer(QWindow *window, const QString &layer, const QPoint *cursor) = 0;
     virtual bool canSetWindowLayer() = 0;
 
     /**

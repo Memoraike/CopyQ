@@ -12,6 +12,7 @@
 #include <QApplication>
 #include <QCoreApplication>
 #include <QDir>
+#include <QScreen>
 #include <QRegularExpression>
 #include <QStandardPaths>
 #include <QStringList>
@@ -251,7 +252,16 @@ void X11Platform::setAutostartEnabled(bool enable)
 #endif
 }
 
-bool X11Platform::setWindowLayer(QWindow *window, const QString &layer)
+#ifdef HAS_LAYERSHELLQT
+namespace {
+
+/// Keep the cursor inside the window near its top left corner.
+constexpr int cursorOffset = 15;
+
+} // namespace
+#endif
+
+bool X11Platform::setWindowLayer(QWindow *window, const QString &layer, const QPoint *cursor)
 {
 #ifdef HAS_LAYERSHELLQT
     if ( !window || QGuiApplication::platformName() != QLatin1String("wayland") )
@@ -277,14 +287,35 @@ bool X11Platform::setWindowLayer(QWindow *window, const QString &layer)
 
     layerWindow->setScope(QStringLiteral("copyq"));
     layerWindow->setLayer(layerValue);
-    // Without anchors, the compositor centers the window on screen.
-    layerWindow->setAnchors(LayerShellQt::Window::AnchorNone);
+
+    if (cursor) {
+        QScreen *screen = QGuiApplication::screenAt(*cursor);
+        if (!screen)
+            screen = window->screen();
+        window->setScreen(screen);
+
+        const QRect area = screen->geometry();
+        const int maxLeft = qMax(0, area.width() - window->width());
+        const int maxTop = qMax(0, area.height() - window->height());
+        const int left = qBound(0, cursor->x() - area.left() - cursorOffset, maxLeft);
+        const int top = qBound(0, cursor->y() - area.top() - cursorOffset, maxTop);
+
+        layerWindow->setAnchors(
+            LayerShellQt::Window::Anchors(LayerShellQt::Window::AnchorTop | LayerShellQt::Window::AnchorLeft) );
+        layerWindow->setMargins( QMargins(left, top, 0, 0) );
+        // Place relative to the whole screen, ignoring panels.
+        layerWindow->setExclusiveZone(-1);
+    } else {
+        // Without anchors, the compositor centers the window on screen.
+        layerWindow->setAnchors(LayerShellQt::Window::AnchorNone);
+    }
     // Allow typing into the window (search, item editing) but let the
     // compositor move the keyboard focus to other windows on click.
     layerWindow->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityOnDemand);
     return true;
 #else
     Q_UNUSED(window)
+    Q_UNUSED(cursor)
     if ( !layer.isEmpty() && QGuiApplication::platformName() == QLatin1String("wayland") )
         log( QStringLiteral("Cannot set Wayland layer: the app was built without LayerShellQt"), LogWarning );
     return false;

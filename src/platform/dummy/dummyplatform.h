@@ -26,7 +26,7 @@ public:
     bool setPreventScreenCapture(WId, bool) override { return false; }
     bool canPreventScreenCapture() override { return false; }
 
-    bool setWindowLayer(QWindow *, const QString &) override { return false; }
+    bool setWindowLayer(QWindow *, const QString &, const QPoint *) override { return false; }
     bool canSetWindowLayer() override { return false; }
 
     QCoreApplication *createConsoleApplication(int &argc, char **argv) override;

@@ -567,6 +567,26 @@ struct wayland_layer : Config<QString> {
     static QString name() { return QStringLiteral("wayland_layer"); }
 };
 
+struct wayland_layer_cursor_command : Config<QString> {
+    static QString name() { return QStringLiteral("wayland_layer_cursor_command"); }
+    static const char *description() {
+        return "Shell command printing mouse cursor position (the first two numbers"
+               " in the output are X and Y, for example \"hyprctl cursorpos\")"
+               " to show the main window under the cursor if it is in a Wayland layer,"
+               " empty to center the window";
+    }
+};
+
+struct window_corner_radius : Config<int> {
+    static QString name() { return QStringLiteral("window_corner_radius"); }
+    static Value defaultValue() { return 0; }
+    static const char *description() {
+        return "Radius of rounded main window corners in pixels, 0 disables them"
+               " (restart the app after changing)";
+    }
+    static Value value(Value v) { return qMax(0, v); }
+};
+
 struct terminate_action_timeout_ms : Config<int> {
     static QString name() { return QStringLiteral("terminate_action_timeout_ms"); }
     static Value defaultValue() { return 5000; }

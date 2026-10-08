@@ -313,6 +313,76 @@
        </layout>
       </item>
       <item>
+       <layout class="QHBoxLayout" name="horizontalLayoutWaylandLayerCursorCommand">
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
+        <item>
+         <widget class="QLabel" name="labelWaylandLayerCursorCommand">
+          <property name="text">
+           <string>Cursor position command:</string>
+          </property>
+          <property name="buddy">
+           <cstring>lineEditWaylandLayerCursorCommand</cstring>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="lineEditWaylandLayerCursorCommand">
+          <property name="toolTip">
+           <string>Shell command printing mouse cursor position to show the main window in a Wayland layer under the cursor; the first two numbers in the output are X and Y (for example, "hyprctl cursorpos" on Hyprland); leave empty to center the window</string>
+          </property>
+          <property name="placeholderText">
+           <string>hyprctl cursorpos</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayoutWindowCornerRadius">
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
+        <item>
+         <widget class="QLabel" name="labelWindowCornerRadius">
+          <property name="text">
+           <string>Rounded window corners:</string>
+          </property>
+          <property name="buddy">
+           <cstring>spinBoxWindowCornerRadius</cstring>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSpinBox" name="spinBoxWindowCornerRadius">
+          <property name="toolTip">
+           <string>Radius of rounded main window corners in pixels, 0 disables them (restart the app after changing)</string>
+          </property>
+          <property name="suffix">
+           <string> px</string>
+          </property>
+          <property name="maximum">
+           <number>100</number>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacerWindowCornerRadius">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
        <widget class="QCheckBox" name="checkBoxSaveFilterHistory">
         <property name="toolTip">
          <string>Save and restore history of item filters</string>
@@ -448,6 +518,8 @@
   <tabstop>pushButtonChangeEncryptionPassword</tabstop>
   <tabstop>comboBoxNavigationStyle</tabstop>
   <tabstop>comboBoxWaylandLayer</tabstop>
+  <tabstop>lineEditWaylandLayerCursorCommand</tabstop>
+  <tabstop>spinBoxWindowCornerRadius</tabstop>
   <tabstop>checkBoxSaveFilterHistory</tabstop>
   <tabstop>checkBoxAutocompleteCommands</tabstop>
   <tabstop>checkBoxClip</tabstop>
