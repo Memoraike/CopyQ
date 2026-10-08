@@ -12,12 +12,18 @@
 #include <QApplication>
 #include <QCoreApplication>
 #include <QDir>
+#include <QScreen>
 #include <QRegularExpression>
 #include <QStandardPaths>
 #include <QStringList>
 #include <QVariant>
 #include <QWidget>
+#include <QWindow>
 #include <QFile>
+
+#ifdef HAS_LAYERSHELLQT
+#   include <LayerShellQt/Window>
+#endif
 
 #include "x11platformclipboard.h"
 
@@ -243,6 +249,85 @@ void X11Platform::setAutostartEnabled(bool enable)
     maybePrintFileError(desktopFile2, "Failed to write desktop file");
 #else
     Q_UNUSED(enable)
+#endif
+}
+
+#ifdef HAS_LAYERSHELLQT
+namespace {
+
+/// Keep the cursor inside the window near its top left corner.
+constexpr int cursorOffset = 15;
+
+} // namespace
+#endif
+
+bool X11Platform::setWindowLayer(QWindow *window, const QString &layer, const QPoint *cursor)
+{
+#ifdef HAS_LAYERSHELLQT
+    if ( !window || QGuiApplication::platformName() != QLatin1String("wayland") )
+        return false;
+
+    LayerShellQt::Window::Layer layerValue;
+    if ( layer == QLatin1String("background") ) {
+        layerValue = LayerShellQt::Window::LayerBackground;
+    } else if ( layer == QLatin1String("bottom") ) {
+        layerValue = LayerShellQt::Window::LayerBottom;
+    } else if ( layer == QLatin1String("top") ) {
+        layerValue = LayerShellQt::Window::LayerTop;
+    } else if ( layer == QLatin1String("overlay") ) {
+        layerValue = LayerShellQt::Window::LayerOverlay;
+    } else {
+        log( QStringLiteral("Unknown Wayland layer \"%1\"").arg(layer), LogWarning );
+        return false;
+    }
+
+    auto layerWindow = LayerShellQt::Window::get(window);
+    if (!layerWindow)
+        return false;
+
+    layerWindow->setScope(QStringLiteral("copyq"));
+    layerWindow->setLayer(layerValue);
+
+    if (cursor) {
+        QScreen *screen = QGuiApplication::screenAt(*cursor);
+        if (!screen)
+            screen = window->screen();
+        window->setScreen(screen);
+
+        const QRect area = screen->geometry();
+        const int maxLeft = qMax(0, area.width() - window->width());
+        const int maxTop = qMax(0, area.height() - window->height());
+        const int left = qBound(0, cursor->x() - area.left() - cursorOffset, maxLeft);
+        const int top = qBound(0, cursor->y() - area.top() - cursorOffset, maxTop);
+
+        layerWindow->setAnchors(
+            LayerShellQt::Window::Anchors(LayerShellQt::Window::AnchorTop | LayerShellQt::Window::AnchorLeft) );
+        layerWindow->setMargins( QMargins(left, top, 0, 0) );
+        // Place relative to the whole screen, ignoring panels.
+        layerWindow->setExclusiveZone(-1);
+    } else {
+        // Without anchors, the compositor centers the window on screen.
+        layerWindow->setAnchors(LayerShellQt::Window::AnchorNone);
+    }
+    // Allow typing into the window (search, item editing) but let the
+    // compositor move the keyboard focus to other windows on click.
+    layerWindow->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityOnDemand);
+    return true;
+#else
+    Q_UNUSED(window)
+    Q_UNUSED(cursor)
+    if ( !layer.isEmpty() && QGuiApplication::platformName() == QLatin1String("wayland") )
+        log( QStringLiteral("Cannot set Wayland layer: the app was built without LayerShellQt"), LogWarning );
+    return false;
+#endif
+}
+
+bool X11Platform::canSetWindowLayer()
+{
+#ifdef HAS_LAYERSHELLQT
+    return QGuiApplication::platformName() == QLatin1String("wayland");
+#else
+    return false;
 #endif
 }
 

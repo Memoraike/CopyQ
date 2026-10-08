@@ -38,6 +38,18 @@ if (WITH_X11)
     set(copyq_LIBRARIES ${copyq_LIBRARIES} ${X11_LIBRARIES} ${X11_Xfixes_LIB})
 endif()
 
+# Wayland layer-shell (allows placing main window to a specific layer)
+find_package(LayerShellQt 6 QUIET)
+if (LayerShellQt_FOUND)
+    message(STATUS "Using LayerShellQt for Wayland window layers.")
+    list(APPEND copyq_DEFINITIONS HAS_LAYERSHELLQT)
+    list(APPEND copyq_LIBRARIES LayerShellQt::Interface)
+else()
+    message(STATUS
+        "LayerShellQt not found, option wayland_layer will not be supported."
+        " Install 'layer-shell-qt' development package to enable it.")
+endif()
+
 # Wayland clipboard
 find_package(ECM REQUIRED NO_MODULE)
 list(APPEND CMAKE_MODULE_PATH ${ECM_MODULE_PATH})

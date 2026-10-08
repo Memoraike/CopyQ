@@ -76,14 +76,20 @@
 #include <QMessageBox>
 #include <QMimeData>
 #include <QModelIndex>
+#include <QPainter>
+#include <QPainterPath>
+#include <QProcess>
 #include <QPushButton>
+#include <QRegularExpression>
 #include <QSaveFile>
 #include <QShortcut>
 #include <QSystemTrayIcon>
 #include <QTimer>
 #include <QToolBar>
+#include <QSurfaceFormat>
 #include <QUrl>
 #include <QVector>
+#include <QWindow>
 
 #include <algorithm>
 #include <memory>
@@ -704,6 +710,106 @@ public:
     }
 };
 #endif
+
+/// Cuts transparent rounded corners out of the (translucent) main window.
+class CornerMask final : public QWidget {
+public:
+    /// With \a background, paints rounded window background under other widgets
+    /// instead of cutting the corners over them.
+    explicit CornerMask(QWidget *parent, bool background = false)
+        : QWidget(parent)
+        , m_background(background)
+    {
+        setAttribute(Qt::WA_TransparentForMouseEvents);
+        setAttribute(Qt::WA_NoSystemBackground);
+        parent->installEventFilter(this);
+    }
+
+    void setRadius(int radius)
+    {
+        m_radius = radius;
+        update();
+    }
+
+protected:
+    bool eventFilter(QObject *object, QEvent *ev) override
+    {
+        const auto type = ev->type();
+        if (type == QEvent::Resize || type == QEvent::Show || type == QEvent::ChildAdded) {
+            setGeometry( parentWidget()->rect() );
+            if (m_background)
+                lower();
+            else
+                raise();
+        }
+        return QWidget::eventFilter(object, ev);
+    }
+
+    void paintEvent(QPaintEvent *) override
+    {
+        if (m_radius <= 0)
+            return;
+
+        if (m_background) {
+            QPainter p(this);
+            p.setRenderHint(QPainter::Antialiasing);
+            p.setPen(Qt::NoPen);
+            p.setBrush( palette().color(QPalette::Window) );
+            p.drawRoundedRect(rect(), m_radius, m_radius);
+            return;
+        }
+
+        QPainterPath corners;
+        corners.addRect(rect());
+        QPainterPath rounded;
+        rounded.addRoundedRect(rect(), m_radius, m_radius);
+        corners -= rounded;
+
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setCompositionMode(QPainter::CompositionMode_Clear);
+        p.fillPath(corners, Qt::transparent);
+    }
+
+private:
+    int m_radius = 0;
+    bool m_background = false;
+};
+
+namespace {
+
+/// Runs shell \a command and parses mouse cursor position from the first
+/// two numbers in its output, for example "X Y", "X, Y" or {"x": X, "y": Y}.
+bool cursorPositionFromCommand(const QString &command, QPoint *pos)
+{
+    QProcess process;
+    process.start( QStringLiteral("sh"), {QStringLiteral("-c"), command} );
+    if ( !process.waitForFinished(500) ) {
+        process.kill();
+        process.waitForFinished(100);
+        log( QStringLiteral("Cursor position command timed out: %1").arg(command), LogWarning );
+        return false;
+    }
+
+    if ( process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0 ) {
+        log( QStringLiteral("Cursor position command failed: %1").arg(command), LogWarning );
+        return false;
+    }
+
+    static const QRegularExpression re(
+        QStringLiteral(R"((-?\d+(?:\.\d+)?)[^-\d]+(-?\d+(?:\.\d+)?))") );
+    const auto output = QString::fromUtf8( process.readAllStandardOutput() );
+    const auto match = re.match(output);
+    if ( !match.hasMatch() ) {
+        log( QStringLiteral("Cannot parse cursor position from command output: %1").arg(output), LogWarning );
+        return false;
+    }
+
+    *pos = QPoint( qRound(match.captured(1).toDouble()), qRound(match.captured(2).toDouble()) );
+    return true;
+}
+
+} // namespace
 
 class ToolBar final : public QToolBar {
 public:
@@ -2844,6 +2950,39 @@ void MainWindow::addCommands(const QVector<Command> &commands)
 bool MainWindow::eventFilter(QObject *object, QEvent *ev)
 {
     const QEvent::Type type = ev->type();
+
+    // Dialogs are normal windows which are always below the "top" layer,
+    // so they would be hidden behind the main window.
+    if ( type == QEvent::Polish && !m_options.waylandLayer.isEmpty() ) {
+        auto *dialog = qobject_cast<QDialog*>(object);
+        if ( dialog && dialog->isWindow() && !dialog->isVisible() ) {
+            const int radius = m_options.cornerRadius;
+            if (radius > 0) {
+                dialog->setAttribute(Qt::WA_TranslucentBackground);
+            }
+            dialog->createWinId();
+            QWindow *handle = dialog->windowHandle();
+            if ( radius > 0 && handle->format().alphaBufferSize() < 8 ) {
+                handle->destroy();
+                QSurfaceFormat format = handle->format();
+                format.setAlphaBufferSize(8);
+                handle->setFormat(format);
+                dialog->createWinId();
+            }
+            platformNativeInterface()->setWindowLayer(handle, QStringLiteral("overlay"), nullptr);
+            if (radius > 0) {
+                dialog->setAutoFillBackground(false);
+                (new CornerMask(dialog, true))->setRadius(radius);
+                (new CornerMask(dialog))->setRadius(radius);
+            }
+        }
+        return false;
+    }
+
+    // The filter can be installed only for the Wayland layer above.
+    if (m_options.navigationStyle == NavigationStyle::Default)
+        return false;
+
     if (type != QEvent::KeyPress && type != QEvent::ShortcutOverride)
         return false;
 
@@ -3007,6 +3146,21 @@ void MainWindow::keyReleaseEvent(QKeyEvent *event)
     QMainWindow::keyReleaseEvent(event);
 }
 
+void MainWindow::paintEvent(QPaintEvent *event)
+{
+    if (m_options.cornerRadius > 0) {
+        // The window is translucent, so paint the background under the widgets.
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(Qt::NoPen);
+        p.setBrush( palette().color(QPalette::Window) );
+        p.drawRoundedRect(rect(), m_options.cornerRadius, m_options.cornerRadius);
+        return;
+    }
+
+    QMainWindow::paintEvent(event);
+}
+
 bool MainWindow::event(QEvent *event)
 {
     QEvent::Type type = event->type();
@@ -3074,11 +3228,12 @@ void MainWindow::loadSettings(QSettings &settings, AppConfig *appConfig)
     setUseSystemIcons( theme().useSystemIcons() );
 
     m_options.confirmExit = appConfig->option<Config::confirm_exit>();
-
+    m_options.waylandLayer = appConfig->option<Config::wayland_layer>();
+    m_options.waylandLayerCursorCommand = appConfig->option<Config::wayland_layer_cursor_command>();
     m_options.navigationStyle = appConfig->option<Config::navigation_style>();
     m_trayMenu->setNavigationStyle(m_options.navigationStyle);
     m_menu->setNavigationStyle(m_options.navigationStyle);
-    if (m_options.navigationStyle == NavigationStyle::Default)
+    if (m_options.navigationStyle == NavigationStyle::Default && m_options.waylandLayer.isEmpty())
         qApp->removeEventFilter(this);
     else
         qApp->installEventFilter(this);
@@ -3150,6 +3305,22 @@ void MainWindow::loadSettings(QSettings &settings, AppConfig *appConfig)
     }
     flags.set(Qt::Tool, appConfig->option<Config::hide_main_window_in_task_bar>());
     flags.set(Qt::FramelessWindowHint, appConfig->option<Config::frameless_window>());
+
+    m_options.cornerRadius = appConfig->option<Config::window_corner_radius>();
+    // The attribute takes effect when the native window is (re)created.
+    setAttribute(Qt::WA_TranslucentBackground, m_options.cornerRadius > 0);
+    if (m_options.cornerRadius > 0) {
+        if (!m_cornerMask)
+            m_cornerMask = new CornerMask(this);
+        static_cast<CornerMask*>(m_cornerMask)->setRadius(m_options.cornerRadius);
+        m_cornerMask->setGeometry(rect());
+        m_cornerMask->raise();
+        m_cornerMask->show();
+    } else if (m_cornerMask) {
+        delete m_cornerMask;
+        m_cornerMask = nullptr;
+    }
+
     flags.apply();
 
     Q_ASSERT( ui->tabWidget->count() > 0 );
@@ -3188,6 +3359,7 @@ void MainWindow::loadSettings(QSettings &settings, AppConfig *appConfig)
     const auto menuStyleSheet = theme().getMenuStyleSheet();
     m_trayMenu->setStyleSheet(menuStyleSheet);
     m_menu->setStyleSheet(menuStyleSheet);
+    menuBar()->setStyleSheet(menuStyleSheet);
 
     updateTrayMenuItems();
 
@@ -3241,6 +3413,8 @@ void MainWindow::showWindow()
 
     moveToCurrentWorkspace(this);
 
+    updateWindowLayer();
+
     if ( !isGeometryGuardBlockedUntilHidden(this) && (m_wasMaximized || isMaximized()) )
         showMaximized();
     else
@@ -3256,6 +3430,38 @@ void MainWindow::showWindow()
     }
 
     raiseWindow(this);
+}
+
+void MainWindow::updateWindowLayer()
+{
+    if ( isVisible() )
+        return;
+
+    if (m_options.cornerRadius > 0) {
+        // The native window may have been created before the attribute was set,
+        // without an alpha channel, so the cut corners would be drawn black.
+        createWinId();
+        QWindow *handle = windowHandle();
+        if ( handle && handle->format().alphaBufferSize() < 8 ) {
+            handle->destroy();
+            QSurfaceFormat format = handle->format();
+            format.setAlphaBufferSize(8);
+            handle->setFormat(format);
+            createWinId();
+        }
+    }
+
+    if ( m_options.waylandLayer.isEmpty() )
+        return;
+
+    // Changing window flags can re-create the native window,
+    // so the layer needs to be set again before showing the window.
+    createWinId();
+    QPoint cursor;
+    const bool atCursor = !m_options.waylandLayerCursorCommand.isEmpty()
+        && cursorPositionFromCommand(m_options.waylandLayerCursorCommand, &cursor);
+    platformNativeInterface()->setWindowLayer(
+        windowHandle(), m_options.waylandLayer, atCursor ? &cursor : nullptr);
 }
 
 void MainWindow::hideWindow()

@@ -91,6 +91,9 @@ struct MainWindowOptions {
     bool hideTabs = false;
 
     bool hideMainWindow = false;
+    QString waylandLayer;
+    QString waylandLayerCursorCommand;
+    int cornerRadius = 0;
     bool closeOnUnfocus = false;
 
     int itemActivationCommands = ActivateCloses;
@@ -456,6 +459,7 @@ protected:
     void keyPressEvent(QKeyEvent *event) override;
     void keyReleaseEvent(QKeyEvent *event) override;
     bool event(QEvent *event) override;
+    void paintEvent(QPaintEvent *event) override;
 
     /** Hide (minimize to tray) window on close. */
     void closeEvent(QCloseEvent *event) override;
@@ -582,6 +586,8 @@ private:
 
     void updateWindowTransparency(bool mouseOver = false);
 
+    void updateWindowLayer();
+
     /** Return browser widget in given tab @a index. */
     ClipboardBrowserPlaceholder *getPlaceholder(int index) const;
 
@@ -697,6 +703,7 @@ private:
     ToolBar *m_toolBar;
 
     MainWindowOptions m_options;
+    QWidget *m_cornerMask = nullptr;
 
     bool m_clipboardStoringDisabled = false;
 

@@ -21,7 +21,9 @@ openbox &
 sleep 8
 
 # Smoke test the default session
-"$COPYQ_TESTS_EXECUTABLE" --start-server exit
+# (the first server start on a fresh runner can take several seconds,
+# longer than the default 1s client wait)
+COPYQ_WAIT_FOR_SERVER_MS=15000 "$COPYQ_TESTS_EXECUTABLE" --start-server exit
 
 # Test handling Unix signals.
 "$(dirname "$0")/test-signals.sh"

@@ -162,7 +162,7 @@ jobs:
             ${{ matrix.coverage && 'procps' || '' }}
             ${{ matrix.test_gnome && 'gnome-shell gnome-shell-common glib2.0-bin' || '' }}
             ${{ matrix.with_native_notifications && 'libkf6notifications-dev kf6-kstatusnotifieritem-dev' || '' }}
-            ${{ matrix.with_kf6_wayland_clipboard && 'libkf6guiaddons-dev' || '' }}
+            ${{ matrix.with_kf6_wayland_clipboard && 'libkf6guiaddons-dev liblayershellqtinterface-dev' || '' }}
             ${{ matrix.appimage && 'libfuse2t64' || '' }}
           RETRY_COUNT: "4"
           RETRY_INITIAL_DELAY_SECONDS: "10"
@@ -385,7 +385,8 @@ jobs:
               --output-file coverage.info
 
       - name: Upload coverage to Codecov
-        if: matrix.coverage
+        # Forks are not registered on Codecov (upload fails with 404).
+        if: matrix.coverage && !github.event.repository.fork
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
         with:
           files: ${{github.workspace}}/build/copyq/${{ matrix.cmake_preset }}/coverage.info

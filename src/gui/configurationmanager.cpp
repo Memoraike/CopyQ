@@ -27,6 +27,7 @@
 #include "gui/pluginwidget.h"
 #include "gui/shortcutswidget.h"
 #include "gui/tabicons.h"
+#include "gui/valuecombobox.h"
 #include "gui/windowgeometryguard.h"
 #include "item/clipboardmodel.h"
 #include "item/itemdelegate.h"
@@ -227,6 +228,10 @@ void ConfigurationManager::updateOptionsVisibility()
     m_tabGeneral->checkBoxAutostart->setVisible( platform->canAutostart() );
     m_tabGeneral->checkBoxPreventScreenCapture->setVisible(
         platform->canPreventScreenCapture() );
+    m_tabGeneral->labelWaylandLayer->setVisible( platform->canSetWindowLayer() );
+    m_tabGeneral->comboBoxWaylandLayer->setVisible( platform->canSetWindowLayer() );
+    m_tabGeneral->labelWaylandLayerCursorCommand->setVisible( platform->canSetWindowLayer() );
+    m_tabGeneral->lineEditWaylandLayerCursorCommand->setVisible( platform->canSetWindowLayer() );
 
 #ifdef WITH_QCA_ENCRYPTION
     m_tabGeneral->checkBoxEncryptTabs->setVisible(true);
@@ -368,6 +373,16 @@ void ConfigurationManager::initOptions()
     bind<Config::close_on_unfocus_extra_delay_ms>();
 
     bind<Config::frameless_window>();
+    bind<Config::window_corner_radius>(m_tabGeneral->spinBoxWindowCornerRadius);
+
+    auto comboBoxWaylandLayer = m_tabGeneral->comboBoxWaylandLayer;
+    comboBoxWaylandLayer->addItem(tr("Normal window"), QString());
+    comboBoxWaylandLayer->addItem(tr("Background"), QStringLiteral("background"));
+    comboBoxWaylandLayer->addItem(tr("Bottom"), QStringLiteral("bottom"));
+    comboBoxWaylandLayer->addItem(tr("Top"), QStringLiteral("top"));
+    comboBoxWaylandLayer->addItem(tr("Overlay"), QStringLiteral("overlay"));
+    bind<Config::wayland_layer>(comboBoxWaylandLayer);
+    bind<Config::wayland_layer_cursor_command>(m_tabGeneral->lineEditWaylandLayerCursorCommand);
 
     bind<Config::terminate_action_timeout_ms>();
     bind<Config::clipboard_mime_size_limit>();
@@ -408,6 +423,11 @@ void ConfigurationManager::bind(const QString &optionKey, QComboBox *obj, int de
 void ConfigurationManager::bind(const QString &optionKey, QComboBox *obj, NavigationStyle defaultValue)
 {
     m_options[optionKey] = Option(static_cast<int>(defaultValue), "currentIndex", obj);
+}
+
+void ConfigurationManager::bind(const QString &optionKey, ValueComboBox *obj, const QString &defaultValue)
+{
+    m_options[optionKey] = Option(defaultValue, "currentValue", obj);
 }
 
 void ConfigurationManager::bind(const QString &optionKey, const QVariant &defaultValue, const char *description)
